@@ -1,0 +1,55 @@
+#%RAML 1.0
+title: Pokemon API
+version: v1
+baseUri: /api
+
+mediaType: application/json
+
+types:
+  Pokemon:
+    type: object
+    properties:
+      id: integer
+      name: string
+      height: integer
+      weight: integer
+      types: string[]
+      abilities: string[]
+
+/pokemon:
+  get:
+    description: Lista pokémons externos
+    responses:
+      200:
+        body:
+          application/json:
+            type: any
+
+  post:
+    description: Salva um pokémon
+    body:
+      application/json:
+        type: Pokemon
+    responses:
+      201:
+        body:
+          application/json:
+            type: Pokemon
+
+  /saved:
+    get:
+      description: Lista pokémons salvos
+      responses:
+        200:
+          body:
+            application/json:
+              type: Pokemon[]
+
+  /{id}:
+    get:
+      description: Busca pokémon por ID
+      responses:
+        200:
+          body:
+            application/json:
+              type: any
