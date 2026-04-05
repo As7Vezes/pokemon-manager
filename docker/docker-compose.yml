@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: pokemon-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: pokedex
+    ports:
+      - "5433:5433"
+    volumes:
+      - pokemon_data:/var/lib/postgresql/data
+
+volumes:
+  pokemon_data:
