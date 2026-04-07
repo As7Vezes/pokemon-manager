@@ -200,7 +200,8 @@ if (payload is Array)
     height: p.height,
     weight: p.weight,
     types: p.types splitBy ", ",
-    abilities: p.abilities splitBy ", "
+    abilities: p.abilities splitBy ", ",
+    image: p.image
   }
 else
   payload]]></ee:set-payload>
@@ -267,20 +268,23 @@ output application/json
   height: payload.height,
   weight: payload.weight,
   types: payload.types joinBy ", ",
-  abilities: payload.abilities joinBy ", "
+  abilities: payload.abilities joinBy ", ",
+  image: payload.image
 }]]></ee:set-payload>
 				</ee:message>
 			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="2e5ee903-6a5e-403a-afa4-e16843bce6a0" message="#[payload]"/>
 			<db:insert doc:name="Insert" doc:id="2c0ef470-9dd9-452a-8667-b05336bd6c56" config-ref="Database_Config">
-				<db:sql ><![CDATA[INSERT INTO pokemons (id, name, height, weight, types, abilities)
-VALUES (:id, :name, :height, :weight, :types, :abilities)]]></db:sql>
+				<db:sql ><![CDATA[INSERT INTO pokemons (id, name, height, weight, types, abilities, image)
+VALUES (:id, :name, :height, :weight, :types, :abilities, :image)]]></db:sql>
 				<db:input-parameters ><![CDATA[#[{
   id: payload.id,
   name: payload.name,
   height: payload.height,
   weight: payload.weight,
   types: payload.types,
-  abilities: payload.abilities
+  abilities: payload.abilities,
+  image: payload.image
 }]]]></db:input-parameters>
 			</db:insert>
 			<error-handler >
