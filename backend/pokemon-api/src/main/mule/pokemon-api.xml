@@ -1,24 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
-    <http:listener-config name="pokemon-api-httpListenerConfig">
+    <http:listener-config name="http-listener-config">
         <http:listener-connection host="localhost" port="8081" />
     </http:listener-config>
-    <apikit:config name="pokemon-api-config" api="pokemon-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <apikit:config name="apikit-config" api="pokemon-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
     <db:config name="Database_Config" doc:name="Database Config" doc:id="05b50ed9-358b-40bf-babc-0d910abd9375" >
 		<db:generic-connection url="jdbc:postgresql://localhost:5432/pokedex" user="admin" password="admin123" driverClassName="org.postgresql.Driver"/>
 	</db:config>
+	<http:request-config name="http-request-pokeapi-config" doc:name="HTTP Request configuration" doc:id="d0e28910-ae08-48eb-98ec-3c43f32ae4dc" basePath="/api/v2/pokemon" >
+		<http:request-connection protocol="HTTPS" host="pokeapi.co" port="443" />
+	</http:request-config>
 	<flow name="pokemon-api-main">
-        <http:listener config-ref="pokemon-api-httpListenerConfig" path="/api/*">
+        <http:listener config-ref="http-listener-config" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:response>
             <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:error-response>
         </http:listener>
-        <apikit:router config-ref="pokemon-api-config" />
+        <apikit:router config-ref="apikit-config" />
         <error-handler>
             <on-error-propagate type="APIKIT:BAD_REQUEST">
                 <ee:transform doc:name="Transform Message">
@@ -101,16 +104,16 @@ output application/json
         </error-handler>
     </flow>
     <flow name="pokemon-api-console">
-        <http:listener config-ref="pokemon-api-httpListenerConfig" path="/console/*">
+        <http:listener config-ref="http-listener-config" path="/console/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:response>
             <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:error-response>
         </http:listener>
-        <apikit:console config-ref="pokemon-api-config" />
+        <apikit:console config-ref="apikit-config" />
         <error-handler>
             <on-error-propagate type="APIKIT:NOT_FOUND">
                 <ee:transform doc:name="Transform Message">
@@ -127,21 +130,129 @@ output application/json
             </on-error-propagate>
         </error-handler>
     </flow>
-    <flow name="get:\pokemon:pokemon-api-config">
-        <logger level="INFO" message="get:\pokemon:pokemon-api-config" />
+    <flow name="get:\pokemon:apikit-config">
+        <logger level="INFO" message='#["Requisição recebida - correlationId: $(correlationId)"]' />
+		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="d3e47911-5ec0-4921-9128-92f68493af5b" variableName="startTime" />
+		<try doc:name="Try" doc:id="61ca832e-2e44-4f2b-8417-50c74dd4f32b">
+			<http:request method="GET" doc:name="Request" doc:id="f377a9ca-d673-41ff-9b83-9a9e339aca01" config-ref="http-request-pokeapi-config" path="/" />
+			<logger level="INFO" doc:name="Logger" doc:id="9c072e64-98ca-4f9f-b673-62f77a61a9b0" message='#[write(payload, "application/json")]' />
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="9f390732-8700-4ff2-8ac3-2ed9e75f41fe">
+					<ee:transform doc:name="Transform Message" doc:id="5b688e9d-2c0c-4021-8afc-8b55a29f23ed">
+						<ee:message>
+							<ee:set-payload><![CDATA[output application/json
+---
+{
+  status: "erro",
+  mensagem: "Não foi possível buscar os pokemons"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="aa64196d-7dac-49f2-b261-1cd0c12c7055" />
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="50a04ad9-058b-4970-b67f-c1aa17355402">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  total: sizeOf(payload.results),
+  pokemons: payload.results
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="46277c6a-f164-49c6-97d6-e8ebf92b1ce7" message='#["Resposta enviada - correlationId: $(correlationId) - tempo: $((now() as Number {unit: "milliseconds"}) - (vars.startTime as Number {unit: "milliseconds"}))"]' />
     </flow>
-    <flow name="get:\pokemon\saved:pokemon-api-config">
-        <logger level="INFO" message="get:\pokemon\saved:pokemon-api-config" />
+    <flow name="get:\pokemon\saved:apikit-config">
+		<logger level="INFO" doc:name="Logger" doc:id="5ffc8f0c-2d3f-4ca0-b139-dad21f08ab55" message='#["Requisição recebida - correlationId: $(correlationId)"]'/>
+		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="a452cf6f-3a8c-4e5a-8e82-42e1e52227e5" variableName="startTime"/>
+		<try doc:name="Try" doc:id="e3150d9b-1f4a-4537-9f6f-ef62f81c82a0" >
+			<db:select doc:name="Select" doc:id="15201cb8-8571-4f2c-895f-d9fc11bac2c8" config-ref="Database_Config">
+				<db:sql ><![CDATA[SELECT * FROM pokemons;]]></db:sql>
+			</db:select>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="01941329-b780-41a3-a3c6-8859bb1d9d5e" >
+					<ee:transform doc:name="Transform Message" doc:id="9e339be1-1f61-42a6-a7a3-3491f595df98" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[output application/json
+---
+{
+  status: "erro",
+  mensagem: "Erro ao carregar os pokemons salvos!"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="41689688-863b-4f65-91d0-6406fce908df" message='#["Erro ao carregar os pokemons salvos - correlationId: $(correlationId) - erro: $(error.description)"]'/>
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="8e6b9202-760f-4c64-be71-d5a93040785a">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (payload is Array)
+  payload map (p) -> {
+    id: p.id,
+    name: p.name,
+    height: p.height,
+    weight: p.weight,
+    types: p.types splitBy ", ",
+    abilities: p.abilities splitBy ", "
+  }
+else
+  payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="babd007c-a5ab-48bd-bbea-d0a0d3823816" message='#["Resposta enviada - correlationId: $(correlationId) - tempo: $((now() as Number {unit: "milliseconds"}) - (vars.startTime as Number {unit: "milliseconds"}))"]'/>
     </flow>
-    <flow name="get:\pokemon\(id):pokemon-api-config">
-        <ee:transform doc:name="Transform Message">
-            <ee:variables>
-                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
-            </ee:variables>
-        </ee:transform>
-        <logger level="INFO" message="get:\pokemon\(id):pokemon-api-config" />
+    <flow name="get:\pokemon\(id):apikit-config">
+		<logger level="INFO" message='#["Requisição recebida - correlationId: $(correlationId)"]' />
+		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="6226ebde-c6fb-4b0a-b8a4-e77cc0573a34" variableName="StartTime" />
+		<try doc:name="Try" doc:id="b6463cb0-ce7e-40bb-b138-fe93f2996020">
+			<http:request method="GET" doc:name="Request" doc:id="f6d49fc2-fd3b-4a23-b2f0-0b5c8804b2ce" config-ref="http-request-pokeapi-config" path="/{id}">
+				<http:uri-params><![CDATA[#[{
+	"id" : attributes.uriParams.id
+}]]]></http:uri-params>
+			</http:request>
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="aacbff84-9d44-4729-b56a-80bebabd87b7">
+					<ee:transform doc:name="Transform Message" doc:id="e0197230-26d3-41cb-8afc-5deb4c4b229b">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  status: "erro",
+  mensagem: "Não foi possível buscar o pokemon"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="85bcd0a3-aa74-4a08-9d7e-239981ea8bc0" message='#["Erro ao buscar pokemon - correlationId: $(correlationId) - erro: $(error.description)"]' />
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="e01c1771-8f4b-4406-b74f-2956cab8c734">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  id: payload.id,
+  name: payload.name,
+  height: payload.height,
+  weight: payload.weight,
+  types: payload.types map (t) -> t.'type'.name,
+  abilities: payload.abilities map (a) -> a.ability.name,
+  image: payload.sprites.front_default
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="98a2edb3-5c44-42cf-9ce1-6aebe70761d2" message='#["Resposta enviada - correlationId: $(correlationId) - tempo: $((now() as Number {unit: "milliseconds"}) - (vars.startTime as Number {unit: "milliseconds"}))"]' />
     </flow>
-    <flow name="post:\pokemon:application\json:pokemon-api-config">
+    <flow name="post:\pokemon:application\json:apikit-config">
         <logger level="INFO" message='#["Requisição recebida - correlationId: $(correlationId)"]' />
 		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="7520d4ee-8820-42d0-88af-9a6378ed6e4c" variableName="startTime"/>
 		<try doc:name="Try" doc:id="8f667763-a902-4904-8028-9113b385b6a9" >
@@ -172,6 +283,32 @@ VALUES (:id, :name, :height, :weight, :types, :abilities)]]></db:sql>
   abilities: payload.abilities
 }]]]></db:input-parameters>
 			</db:insert>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="9a6a694e-9463-482e-8266-f260496b5e25" >
+					<ee:transform doc:name="Transform Message" doc:id="0b2f7f06-0ca5-4cce-80f2-035ad9862c4d" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[output application/json
+---
+{
+  status: "erro",
+  mensagem: "Não foi possível adicionar o pokemon"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="9be20f62-50b5-478d-95b5-9b1113158172" message='#["Erro ao adicionar pokemon - correlationId: $(correlationId) - erro: $(error.description)"]'/>
+				</on-error-continue>
+			</error-handler>
 		</try>
+		<ee:transform doc:name="Transform Message" doc:id="68137969-c01b-4ddc-9857-a3cf7214495b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Pokemon adicionado com sucesso"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="3604159e-1048-42ed-9ed2-d9ca951666e5" message='#["Resposta enviada - correlationId: $(correlationId) - tempo: $((now() as Number {unit: "milliseconds"}) - (vars.startTime as Number {unit: "milliseconds"}))"]'/>
     </flow>
 </mule>
